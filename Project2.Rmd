@@ -1,0 +1,146 @@
+---
+title: "Project 2"
+author: "Joshua Vong"
+date: "11/17/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressMessages(library(tidyverse))
+suppressMessages(library(tinytex))
+suppressMessages(library(ggplot2))
+library(Metrics)
+set.seed(12345)
+```
+Data Info:
+The data was taken from the website kaggle from user Chelsea Zaloumis who received the data by scraping from California Irrigation Management Information System (CIMIS) website.
+
+Data purpose:
+This data set was to help explore factors of why California wild fires occur, the data set isn't the newest, it's only a year old from the year 2020 where California fires were more common.
+
+Data Science Questions:
+
+1. Can we predict what fires will happen based on the attributes? For example, with the max air temperature, at which point will fire start to occur.
+
+   Success - A successful result of this question is that we can tell when a fire is likely to occur due to a common occurrences in the attributes.
+   
+   Failure - A failing result will have the attribute be inconsistent with each other, and unable to predict when a fire might occur.
+
+2. Does an increase in solar radiation affect the rates of fire occurring?
+   
+   Success - Will be able to tell if solar radiation will increase so does the chances of a fire.
+   
+   Failure - Solar radiation does not attribute to a fire.
+
+3. Based on the regions where fires occur the most, can we predict the chances of a fire occurring in that area by the attributes?
+
+   Success - Able to predict which area has the most potential for a fire to occur.
+   
+   Failure - Unable to pinpoint where a fire is most likely to occur.
+
+
+```{r}
+conditions <-read.table("~/Downloads/all_conditions.csv",header = TRUE, sep = ",",stringsAsFactors = TRUE)
+data <- conditions %>% rename(station_id = Stn.Id, station_name = Stn.Name, ethylene_oxide_in = ETo..in., precipitation_in = Precip..in., solar_radiation_langley = Sol.Rad..Ly.day., 
+                      average_vapor_pressure_mbar = Avg.Vap.Pres..mBars., max_air_temp_f = Max.Air.Temp..F., min_air_temp_f = Min.Air.Temp..F., average_air_temp_f = Avg.Air.Temp..F.,
+                      max_relative_humidity = Max.Rel.Hum...., min_relative_humidity = Min.Rel.Hum...., average_relative_humidity = Avg.Rel.Hum...., dew_point_f = Dew.Point..F., 
+                      average_wind_speed_mph = Avg.Wind.Speed..mph., wind_run_miles = Wind.Run..miles., average_soil_temp_f = Avg.Soil.Temp..F.)
+
+```
+Defining Columns:
+
+station_id - ID of the weather station in California.
+
+station_name - Name of the weather station.
+
+CIMIS.Region - Region where the California Irrigation Management Information System is in.
+
+Date - Date of when the data was taken.
+
+ethylene_oxide_in -  Ethylene oxide is a flammable gas with a somewhat sweet odor, this measures the ethylene oxide in the air, the units it is measured in is in inches.
+
+precipitation_in - Precipitation is any product of the condensation of atmospheric water vapor that falls under gravitational pull from clouds, measured in inches.
+
+solar_radiation_langley -  Solar radiation is the electromagnetic radiation emitted by the sun, this column is measured in Langley units(Ly)
+
+average_vapor_pressure_mbar - The pressure exerted by the gas in equilibrium with a solid or liquid in a closed container at a given temperature is called the vapor pressure, this columns gets the average vapor pressure and is measured in millibar unit of pressure.
+
+max_air_temp_f - Maximum air temperature for the region, measured in Fahrenheit.
+
+min_air_temp_f - Minimum air temperature for the region, measured in Fahrenheit.
+
+average_air_temp_f - Average air temperature for the region, measured in Fahrenheit.
+
+max_relative_humidity - Max humidity in the air, measures the percentage of the humidity.
+
+min_relative_humidity - Min humidity in the air, measures the percentage of the humidity.
+
+average_relative_humidity - Average humidity in the air, measures the percentage of the humidity.
+
+dew_point_f - The dew point is the temperature to which air must be cooled to become saturated with water vapor, measured in Fahrenheit.
+
+average_wind_speed_mph - Average speed of the wind, measured in miles per hour (mph).
+
+wind_run_miles - Wind run is a meteorological term used to categorize or determine the total distance of the traveled wind over a period of time, measured in miles.
+
+average_soil_temp_f - Average temperature of the soil, measured in Fahrenheit.
+
+target - weather or not the area has had a fire 0 for no, 1 for yes.
+
+
+```{r}
+ggplot(data = data,aes(x = ethylene_oxide_in , y = wind_run_miles,color = Target))+geom_point()
+```
+The point for this graph was to see which factors does target 1 appeared the most, this means that wherever there is a 1 (highlighted in light blue) there is a fire that occurred. It doesn't mention how big the fire is, so some of these fires may not have been huge, but rather a small one. It seems like the major fires occur when the wind run is low, which makes sense, since wind would blow out smaller fires, but I believe if it was a larger fire than the higher winds could cause bigger damage from carrying the fire. However, the ethylene oxide that the fire occurs is somewhat mid to low. I thought that it would be higher, I guess the amount of ethylene oxide needed must be low for those fire to occur.
+
+
+```{r}
+ggplot(data = data)+geom_histogram(aes(x = Target, y = precipitation_in, color = CIMIS.Region), stat = "identity")
+```
+This graph I wanted to see how precipitation affected the target value. My prediction when making this graph the higher the precipitation the less likely the fires will occur. From looking at this graph I was right, Target 1s precipitation is very low, thus the chances of a fire happening is likely to happen. It seems like the area that has the most fires are the purple colored or near purple colored, there is a hint of green, which seems to be more of the Los Angeles Basin area. In the 0 target area it seems that there isn't any fires even when the precipitation is low. This is probably due to different areas of the region that doesn't have any fires.
+
+
+
+```{r}
+maxTempMean <- mean(data$max_air_temp_f)
+ggplot(data = data)+geom_bar(aes(x = solar_radiation_langley, y = max_air_temp_f, color = Target), stat = "identity", binwidth = 10)
+```
+I was interested in how solar_radiation would factor into the fires, although I'm unfamiliar with solar radiation, I am familiar with air temperature though and it looks like around the 1000 Fahrenheit mark that's where fires are most common. It seems like there isn't a correlation between solar radiation and air temperature, but it seems like the data collected has solar radiation of around 1000 Langley is the average.
+
+
+```{r}
+model <- lm(data$max_air_temp_f ~ data$solar_radiation_langley,data = data)
+
+predictions <- predict(model,data)
+
+model.ris <- resid(model)
+
+graph1 <- ggplot(data = data)+geom_point(aes(x = predictions, y = max_air_temp_f))
+graph1
+
+graph2 <- ggplot(data = data)+geom_point(aes(x = predictions, y = solar_radiation_langley))
+graph2
+```
+For this model, I choose to go with linear modeling and used the data columns max_air_temp_f and solar_radiation_langley to help calculate a prediction model for the graph. For the first graph I compare max_air_temp_f with the prediction generated from the linear model. Looking at the graph it seems there are a few residuals outside of the giant cluster after the 100 mark on the x-axis. It seems like the predictions are more towards the 25-100 mark and the temperature seems to be around the upper 75 mark. As for the second graph I compared a geom point with solar_radiation_langley and prediction since it is also a columm I used with my model. The graph for the second model follows a more linear look, which given using a linear model, I guess it's no surprise. It seems like solar_radiation will continue to increase with the predictions, could this factor into the fires? or just a reaction to the amount of fires? hard to really say might need some more research in this area.
+
+```{r}
+model2 <- lm(data$precipitation_in~data$average_wind_speed_mph,data = data)
+model2
+pred <- predict(model2,data)
+pred
+model.ris2 <- resid(model2)
+
+graph3 <- ggplot(data = data)+geom_point(aes(x = pred, y = precipitation_in, color = CIMIS.Region))
+graph3
+
+graph4 <- ggplot(data = data)+geom_point(aes(x = pred, y = average_wind_speed_mph, color = CIMIS.Region))
+graph4
+```
+Unsatisfied with my last model, I decided to create another involving the attributes precipitations and average_wind_speed since they have some correlation between them. With the first graph in this section I added grouping by the regions in the data. The reason was to see the chances of a fire happen, either low or high the prediction helped narrow down the chances of it happening. I was comparing this with my previous graph involving the precipitation, this time we get to see what areas have low precipitation also have a high chance of fires happening. The second graph is also more linear like, similar to the previous model involving the second attribute, I added grouping again, for the regions wind speed. I'm not that surprised by the predictions at which areas have the higher wind speeds, being from the valleys myself.
+
+**Conclusion**
+
+The data science questions attempted to answer was question 1 and question 3. The attempt for question 1 I would say would be a failure, creating the model doesn't really answer the question weather or not attributes contribute towards a fire. It may have given off some indication, but I would say its not enough or more accurately not concrete, perhaps another model would suit it better. Regarding question 3, I would say the model was a better attempt, but again not very successful. It gave some indication of where in the regions are fires most likely and less likely to occur, but nothing concrete. Overall I would say while both models were decent attempts, they weren't fully used to the best of their abilities.
